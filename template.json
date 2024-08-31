@@ -1,0 +1,30 @@
+{
+    "template": "DEMO",
+    "version": "0.0",
+    "shortcut": [
+        {
+            "id": "key_pressed",
+            "data": ["+"],
+            "with": {
+                "modifier": ["Cmd"]
+            },
+            "action": {
+                "insert": {
+
+                }
+            }
+        }
+    ],
+    "block": {
+        "general": {
+            "type": "field",
+            "data": {
+                "acceptance": {
+                    "tag": []
+                }
+            },
+            "tag": []
+        },
+        "":""
+    }
+}
