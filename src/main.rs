@@ -1,10 +1,10 @@
-use std::{collections::HashMap, default, time::SystemTime};
-
-use context::Context;
 use egui::{pos2, vec2, Align2, Color32, FontId, Id, IdMap, Key, Pos2, RichText, Widget};
-use template::{Component, Driver, Element, Field};
+use context::Context;
+use template::{Component, Driver, DriverField, Element, Field, Spawner};
+#[cfg(test)]
 mod ui_test;
 pub mod context;
+pub mod utils;
 mod template;
 
 
@@ -36,35 +36,45 @@ mod test {
 
 struct MyApp {
 
-    elem: Element,
-    drv: Driver,
+    // elem: Element,
+    // drv: Driver,
     spw: template::Spawn,
     
     ctx: Context,
-    field: Field
+    field: Field,
+    dfield: DriverField,
 }
 
 
 impl Default for MyApp {
     fn default() -> Self {
-        let mut field = Field { map: <IdMap<(template::Spawn,Element,Driver)> as egui::ahash::HashMapExt>::new(), 
-            tag: <egui::ahash::HashMap<String,Vec<Id>> as egui::ahash::HashMapExt>::new() };
+        let mut field = Field::default();
         let enum_default = template::enumset::Enum::enum_default(&mut field);
 
-
+        
 
         let mut ret = Self {
             ctx: Default::default(),
             field,
 
-            elem: Element::Driven(
+            /* elem: Element::Driven(
                 template::Driven::Enum(template::enumset::Enum { 
-                    cond: template::enumset::Cond::Elem(vec![("Noel".into(),"Alma".into())]), 
+                    cond: template::enumset::Cond::Elem(vec!["Noel".into()]), 
                     default: enum_default,
                 })),
-            drv: Driver::Enum("Noel".into()),
-            spw: Default::default()
+            drv: Driver::Enum("Noel".into()), */
+            spw: Default::default(),
+            dfield: DriverField { map: Default::default() },
         };
+
+        let elem_table = Element::Driven(template::Driven::TableH(Box::new(Element::Driven(template::Driven::CheckBoxRT("try".into())))));
+        let drv_table = Driver::List(vec![Driver::CheckBoxRT(true),Driver::CheckBoxRT(false),Driver::CheckBoxRT(true)]);
+        let spawn = template::Spawn::new(&elem_table, &drv_table, &mut ret.ctx, &ret.field);
+
+        ret.spw = spawn.clone();
+        ret.field.insert_spawner("Table_Example".into(), (spawn,elem_table,drv_table.clone()).into(), vec![]);
+        ret.dfield.map.insert("Table_Example".into(), drv_table);
+        /*
         let elem = Element::Static(template::Static::LabelRT("hello world".into()));
         let drv = Driver::None;
         let spawn = template::Spawn::new(
@@ -73,10 +83,10 @@ impl Default for MyApp {
                 &mut ret.ctx,
                 &ret.field,
             );
-        ret.field.map.insert("Noel".into(), (
+        ret.field.insert_spawner("Noel".into(), (
             spawn,elem.clone(),drv
-        ));
-        ret.spw = template::Spawn::new(&ret.elem, &ret.drv, &mut ret.ctx, &ret.field);
+        ).into(),vec![]);
+        ret.spw = template::Spawn::new(&ret.elem, &ret.drv, &mut ret.ctx, &ret.field);*/
         ret
     }
 }
@@ -93,7 +103,8 @@ impl Default for MyApp {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            let elem = &Element::Static(template::Static::LabelRT("hello world".into()));
+            ui.label("hello\nw\na\no\nr\nd\na\no\nj\nd\ns\na");
+            /* let elem = &Element::Static(template::Static::LabelRT("hello world".into()));
             let drv = &mut Driver::None;
             Component {
                 spawn: &mut template::Spawn::new(
@@ -106,20 +117,24 @@ impl eframe::App for MyApp {
                 drv,
                 field: &self.field,
                 ctx: &mut self.ctx,
+
+                id: Id::new("hello world")
             }.ui(ui);
 
-            self.field.map.insert("Noel".into(), (
-                template::Spawn::new(elem, drv, &mut self.ctx, &self.field).with_name("Ixia".into()),
+            self.field.insert_spawner("Noel".into(), (
+                template::Spawn::new(elem, drv, &mut self.ctx, &self.field),
                 elem.clone(),
                 Driver::None
-            ));
+            ).into(),vec![]);  */
 
             Component {
-                spawn: &mut self.spw,
-                elem: &self.elem,
-                drv: &mut self.drv,
+                spw: &mut self.spw,
+                elem: &self.field.map[&"Table_Example".into()].elem,
+                drv: &mut self.dfield.map.get_mut(&"Table_Example".into()).unwrap(),
                 field: &self.field,
                 ctx: &mut self.ctx,
+
+                id: "Noel".into()
             }.ui(ui);
         });
     }

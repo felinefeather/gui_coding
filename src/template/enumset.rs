@@ -1,7 +1,7 @@
 use egui::{Button, Id, IdMap, Key, Label, PopupCloseBehavior, Response, Widget};
 use egui_extras::TableRow;
 
-use super::{Component, Driver, Element, Field};
+use super::{Component, Driver, Element, Field, Spawner};
 use crate::{context::Context, template::{Spawn, TagCache}};
 
 
@@ -15,11 +15,11 @@ impl Enum {
     pub fn enum_default(field: &mut Field) -> Id {
         let id = Id::new("enum").with("unselected");
         if field.map.get(&id).is_none() {
-            field.map.insert(id,(   
-                Spawn::default(),
-                Element::Static(super::Static::LabelRT("unselected".into())),
-                Driver::None
-            ));
+            field.map.insert(id, super::Chunk {
+                elem: Element::Static(super::Static::LabelRT("unselected".into())),
+                drv: Driver::None,
+                tags: vec![],
+            });
         };
         id
     }
@@ -30,23 +30,21 @@ impl Enum {
         Self {
             cond: Cond::Elem(vec.into_iter().map(|s| {
                 let id = Id::new("enum").with(ctx.count.get());
-                field.map.insert(
-                    id, 
-                    (   
-                        Spawn::default(),
-                        Element::Static(super::Static::LabelRT(s.clone().into())),
-                        Driver::None
-                    ));
-                (id,s)
+                field.map.insert( id, super::Chunk { 
+                    elem: Element::Static(super::Static::LabelRT(s.clone().into())),
+                    drv: Driver::None,
+                    tags: vec![s]
+                });
+                id
             }).collect()),
             default: {
                 let id = Id::new("enum").with("unselected");
                 if field.map.get(&id).is_none() {
-                    field.map.insert(id,(   
-                        Spawn::default(),
-                        Element::Static(super::Static::LabelRT("unselected".into())),
-                        Driver::None
-                    ));
+                    field.map.insert(id, super::Chunk { 
+                        elem: Element::Static(super::Static::LabelRT("unselected".into())),
+                        drv: Driver::None,
+                        tags: vec![]
+                    });
                 };
                 id
             }
@@ -59,19 +57,19 @@ impl Enum {
 pub struct Cache {
     pub searcher: simsearch::SimSearch<usize>,
     pub selected: Box<(Spawn,Element,Driver)>,
-    pub selectable: Vec<(Id,String)>,
+    pub selectable: Vec<Id>,
 }
 
 #[derive(Clone)]
 pub enum Cond {
-    Elem(Vec<(Id, String)>),
+    Elem(Vec<Id>),
     Tags(Vec<String>),
 }
 
 pub struct EnumSpawn<'a> {
     pub spw: &'a mut Vec<Spawn>,
     pub elem: &'a Cond,
-    pub drv: Id,
+    pub drv: &'a mut Spawner, // why? drv should be mutable
 
     pub cache: &'a mut Cache,
 
@@ -115,31 +113,39 @@ impl<'a> Widget for EnumSpawn<'a> {
                 let index = row.index();
                 row.col(|ui|
                     {
-                        let (elem,name) = &match cond {
-                            Cond::Elem(vec) => &vec[index],
-                            Cond::Tags(_) => &cache.selectable[index]
+                        let elem = &match cond {
+                            Cond::Elem(vec) => vec[index],
+                            Cond::Tags(_) => cache.selectable[index]
                         };
-                        let resp = ui.add(
-                            Button::new(name.clone()).wrap_mode(egui::TextWrapMode::Extend)
-                        );
+                        let chunk = &field.map[elem];
+                        let resp = ui.button("|");
+
+                        Component {
+                            spw: &mut field.spw[elem].clone(),
+                            elem: &chunk.elem,
+                            drv: &mut chunk.drv.clone(),
+                            id,
+                            field,
+                            ctx,
+                        }.ui(ui);
+                        // to show something ...
+                        // surely ...
+                        let mut click = || {
+                            ctx.focus.lost_focus_this_frame.on();
+                            *drv = field.get_spawner(*elem).unwrap();
+                            ctx.close_popup.on()
+                        };
                         if let Some(u) = target {
                             if u == index {
-                                if ctx.search == *name && 
-                                    ui.input(|i| i.key_pressed(Key::Enter)) 
-                                {
-                                    ctx.focus.lost_focus_this_frame.on();
-                                    drv = *elem;
-                                    cache.selected = Box::new(field.map[&drv].clone());
-                                    ctx.close_popup.on()
-                                }
+                                if ctx.search == field.map[elem].tags[0] && 
+                                    ui.input(|i| i.key_pressed(Key::Enter)) {
+                                        click();
+                                    }
                                 resp.request_focus();
                             }
                         }
                         if resp.clicked() {
-                            ctx.focus.lost_focus_this_frame.on();
-                            drv = *elem;
-                            cache.selected = Box::new(field.map[&drv].clone());
-                            ctx.close_popup.on()
+                            click();
                         }
                     }
                 );
@@ -160,9 +166,9 @@ impl<'a> Widget for EnumSpawn<'a> {
                 },
             );
         } else {
-            let (spawn, elem, drv) = cache.selected.as_mut();
+            let Spawner {spw, elem, drv} = drv;
             Component {
-                spawn,elem,drv,field,ctx
+                spw,elem,drv,field,ctx,id,
             }.ui(ui);
             resp = ui.button(
                 "/"

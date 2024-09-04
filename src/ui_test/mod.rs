@@ -38,8 +38,7 @@ pub mod test {
     
     impl Default for UiTest {
         fn default() -> Self {
-            let mut field = Field { map: <IdMap<(template::Spawn,Element,Driver)> as egui::ahash::HashMapExt>::new(), 
-                tag: <egui::ahash::HashMap<String,Vec<Id>> as egui::ahash::HashMapExt>::new() };
+            let mut field = Field::default();
             let enum_default = template::enumset::Enum::enum_default(&mut field);
 
 
@@ -57,10 +56,10 @@ pub mod test {
 
                 elem: Element::Driven(
                     template::Driven::Enum(template::enumset::Enum { 
-                        cond: template::enumset::Cond::Elem(vec![("Noel".into(),"Alma".into())]), 
+                        cond: template::enumset::Cond::Elem(vec!["Noel".into()]), 
                         default: enum_default,
                     })),
-                drv: Driver::Enum("Noel".into()),
+                drv: Driver::None,
                 spw: Default::default()
             };
             let elem = Element::Static(template::Static::LabelRT("hello world".into()));
@@ -71,9 +70,6 @@ pub mod test {
                     &mut ret.ctx,
                     &ret.field,
                 );
-            ret.field.map.insert("Noel".into(), (
-                spawn,elem.clone(),drv
-            ));
             ret.spw = template::Spawn::new(&ret.elem, &ret.drv, &mut ret.ctx, &ret.field);
             ret
         }
@@ -98,34 +94,6 @@ pub mod test {
             
 
             egui::CentralPanel::default().show(ctx, |ui| {
-                let elem = &Element::Static(template::Static::LabelRT("hello world".into()));
-                let drv = &mut Driver::None;
-                Component {
-                    spawn: &mut template::Spawn::new(
-                        elem,
-                        drv,
-                        &mut self.ctx,
-                        &self.field,
-                    ),
-                    elem,
-                    drv,
-                    field: &self.field,
-                    ctx: &mut self.ctx,
-                }.ui(ui);
-
-                self.field.map.insert("Noel".into(), (
-                    template::Spawn::new(elem, drv, &mut self.ctx, &self.field).with_name("Ixia".into()),
-                    elem.clone(),
-                    Driver::None
-                ));
-
-                Component {
-                    spawn: &mut self.spw,
-                    elem: &self.elem,
-                    drv: &mut self.drv,
-                    field: &self.field,
-                    ctx: &mut self.ctx,
-                }.ui(ui);
                 //ui.add(CatagorySpawn::default());
             /*    egui::Area::new(egui::Id::new("awa"))
                     .order(egui::Order::Middle)
